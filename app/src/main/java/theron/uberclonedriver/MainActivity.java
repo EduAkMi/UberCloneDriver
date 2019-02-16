@@ -30,6 +30,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.rengwuxian.materialedittext.MaterialEditText;
 
 import dmax.dialog.SpotsDialog;
+import theron.uberclonedriver.Common.Common;
 import theron.uberclonedriver.Model.User;
 import uk.co.chrisjenx.calligraphy.CalligraphyConfig;
 import uk.co.chrisjenx.calligraphy.CalligraphyContextWrapper;
@@ -56,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
         // Init Firebase
         auth = FirebaseAuth.getInstance();
         db = FirebaseDatabase.getInstance();
-        users = db.getReference("Users");
+        users = db.getReference(Common.user_driver_tbl);
 
         // Init View
         btnRegister = findViewById(R.id.btnRegister);
