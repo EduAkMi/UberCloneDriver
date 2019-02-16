@@ -171,7 +171,6 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
         mapFragment.getMapAsync(this);
 
         //Init View
-
         location_switch = findViewById(R.id.location_switch);
         location_switch.setOnCheckedChangeListener(new MaterialAnimatedSwitch.OnCheckedChangeListener() {
             @Override
