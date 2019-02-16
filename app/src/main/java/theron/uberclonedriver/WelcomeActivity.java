@@ -14,11 +14,8 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import com.firebase.geofire.GeoFire;
@@ -27,6 +24,7 @@ import com.github.glomadrian.materialanimatedswitch.MaterialAnimatedSwitch;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -45,6 +43,10 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.SquareCap;
+import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
+import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -55,6 +57,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import retrofit2.Call;
@@ -98,8 +101,7 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
     private Handler handler;
     private LatLng startPosition, endPosition, currentPosition;
     private int index, next;
-    private Button btnGo;
-    private EditText edtPlace;
+    private AutocompleteSupportFragment places;
     private String destination;
     private PolylineOptions polylineOptions, blackPolylineOptions;
     private Polyline blackPolyline, greyPolyline;
@@ -191,17 +193,30 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
         });
 
         polyLineList = new ArrayList<>();
-        btnGo = findViewById(R.id.btnGo);
-        edtPlace = findViewById(R.id.edtPlace);
 
-        btnGo.setOnClickListener(new View.OnClickListener() {
+        if(!Places.isInitialized()){
+            Places.initialize(getApplicationContext(), getResources().getString(R.string.google_direction_api));
+        }
+
+        //Places API
+        places = (AutocompleteSupportFragment) getSupportFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
+        places.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME));
+        places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
-            public void onClick(View v) {
-                destination = edtPlace.getText().toString();
-                destination = destination.replace(" ", "+");
-                Log.d("DESTINATION TEXT: ", destination);
+            public void onPlaceSelected(Place place) {
+                if(location_switch.isChecked()){
+                    destination = place.getName();
+                    destination = destination.replace(" ", "+");
+                    
+                    getDirection();
+                } else {
+                    Toast.makeText(WelcomeActivity.this, "Please change your status to ONLINE", Toast.LENGTH_SHORT).show();
+                }
+            }
 
-                getDirection();
+            @Override
+            public void onError(Status status) {
+                Log.d("PLACESAUTOCOMPLETE", ""+status);
             }
         });
 
