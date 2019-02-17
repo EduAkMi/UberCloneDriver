@@ -48,9 +48,11 @@ import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
 
 import org.json.JSONArray;
@@ -109,6 +111,9 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
 
     private IGoogleAPI mService;
 
+    //Presence System
+    DatabaseReference onlineRef, currentUserRef;
+
     Runnable drawPathRunnable = new Runnable() {
         @Override
         public void run() {
@@ -154,11 +159,11 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
         if (startPosition.latitude < endPosition.latitude && startPosition.longitude < endPosition.longitude)
             return (float) (Math.toDegrees(Math.atan(lng / lat)));
         else if (startPosition.latitude >= endPosition.latitude && startPosition.longitude < endPosition.longitude)
-            return (float) ((90-Math.toDegrees(Math.atan(lng / lat)))+90);
+            return (float) ((90 - Math.toDegrees(Math.atan(lng / lat))) + 90);
         else if (startPosition.latitude >= endPosition.latitude && startPosition.longitude >= endPosition.longitude)
-            return (float) (Math.toDegrees(Math.atan(lng / lat))+180);
+            return (float) (Math.toDegrees(Math.atan(lng / lat)) + 180);
         else if (startPosition.latitude < endPosition.latitude && startPosition.longitude >= endPosition.longitude)
-            return (float) ((90-Math.toDegrees(Math.atan(lng / lat)))+270);
+            return (float) ((90 - Math.toDegrees(Math.atan(lng / lat))) + 270);
         return -1;
     }
 
@@ -171,17 +176,38 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        //Presence System
+        onlineRef = FirebaseDatabase.getInstance().getReference().child(".info/connected");
+        currentUserRef = FirebaseDatabase.getInstance().getReference(Common.driver_tbl)
+                .child(FirebaseAuth.getInstance().getCurrentUser().getUid());
+        onlineRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                //We will remove value from Driver tbl when driver disconnected
+                currentUserRef.onDisconnect().removeValue();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+
         //Init View
         location_switch = findViewById(R.id.location_switch);
         location_switch.setOnCheckedChangeListener(new MaterialAnimatedSwitch.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(boolean isOnline) {
                 if (isOnline) {
+                    FirebaseDatabase.getInstance().goOnline(); //Set connected when switch to on
+
                     startLocationUpdates();
                     displayLocation();
                     Snackbar.make(mapFragment.getView(), "You are online", Snackbar.LENGTH_SHORT)
                             .show();
                 } else {
+                    FirebaseDatabase.getInstance().goOffline(); //Set disconnect when switch to off
+
                     stopLocationUpdate();
                     mCurrent.remove();
                     mMap.clear();
@@ -194,7 +220,7 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
 
         polyLineList = new ArrayList<>();
 
-        if(!Places.isInitialized()){
+        if (!Places.isInitialized()) {
             Places.initialize(getApplicationContext(), getResources().getString(R.string.google_direction_api));
         }
 
@@ -204,10 +230,10 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
         places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
-                if(location_switch.isChecked()){
+                if (location_switch.isChecked()) {
                     destination = place.getName();
                     destination = destination.replace(" ", "+");
-                    
+
                     getDirection();
                 } else {
                     Toast.makeText(WelcomeActivity.this, "Please change your status to ONLINE", Toast.LENGTH_SHORT).show();
@@ -216,7 +242,7 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
 
             @Override
             public void onError(Status status) {
-                Log.d("PLACESAUTOCOMPLETE", ""+status);
+                Log.d("PLACESAUTOCOMPLETE", "" + status);
             }
         });
 
@@ -236,7 +262,7 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
         DatabaseReference tokens = db.getReference(Common.token_tbl);
 
         Token token = new Token(FirebaseInstanceId.getInstance().getToken());
-            tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).setValue(token);
+        tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).setValue(token);
     }
 
     private void getDirection() {
@@ -449,8 +475,8 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
         Common.mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (Common.mLastLocation != null) {
             if (location_switch.isChecked()) {
-                final double latitude = Common.mLastLocation .getLatitude();
-                final double longitude = Common.mLastLocation .getLongitude();
+                final double latitude = Common.mLastLocation.getLatitude();
+                final double longitude = Common.mLastLocation.getLongitude();
 
                 //Update to Firebase
                 geoFire.setLocation(FirebaseAuth.getInstance().getCurrentUser().getUid(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
@@ -515,7 +541,7 @@ public class WelcomeActivity extends FragmentActivity implements OnMapReadyCallb
 
     @Override
     public void onLocationChanged(Location location) {
-        Common.mLastLocation  = location;
+        Common.mLastLocation = location;
         displayLocation();
     }
 
