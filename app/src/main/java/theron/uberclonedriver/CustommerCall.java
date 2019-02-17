@@ -1,6 +1,7 @@
 package theron.uberclonedriver;
 
 import android.animation.ValueAnimator;
+import android.content.Intent;
 import android.graphics.Color;
 import android.media.MediaPlayer;
 import android.os.Handler;
@@ -53,6 +54,8 @@ public class CustommerCall extends AppCompatActivity {
 
     String customerId;
 
+    double lat, lng;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -64,7 +67,7 @@ public class CustommerCall extends AppCompatActivity {
         //InitView
         txtTime = findViewById(R.id.txtTime);
         txtAddress = findViewById(R.id.txtAddress);
-        txtDistance=findViewById(R.id.txtDistance);
+        txtDistance = findViewById(R.id.txtDistance);
 
         btnAccept = findViewById(R.id.btnAccept);
         btnCancel = findViewById(R.id.btnDecline);
@@ -72,8 +75,21 @@ public class CustommerCall extends AppCompatActivity {
         btnCancel.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(!TextUtils.isEmpty(customerId))
+                if (!TextUtils.isEmpty(customerId))
                     cancelBooking(customerId);
+            }
+        });
+
+        btnAccept.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(CustommerCall.this, DriverTracking.class);
+
+                //Send customer location to new activity
+                intent.putExtra("lat", lat);
+                intent.putExtra("lng", lng);
+                startActivity(intent);
+                finish();
             }
         });
 
@@ -81,9 +97,9 @@ public class CustommerCall extends AppCompatActivity {
         mediaPlayer.setLooping(true);
         mediaPlayer.start();
 
-        if(getIntent() != null){
-            double lat = getIntent().getDoubleExtra("lat", -1.0);
-            double lng = getIntent().getDoubleExtra("lng", -1.0);
+        if (getIntent() != null) {
+            lat = getIntent().getDoubleExtra("lat", -1.0);
+            lng = getIntent().getDoubleExtra("lng", -1.0);
             customerId = getIntent().getStringExtra("customer");
 
             getDirection(lat, lng);
@@ -100,7 +116,7 @@ public class CustommerCall extends AppCompatActivity {
                 .enqueue(new Callback<FCMResponse>() {
                     @Override
                     public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                        if(response.body().success == 1){
+                        if (response.body().success == 1) {
                             Toast.makeText(CustommerCall.this, "Cancelled!", Toast.LENGTH_SHORT).show();
                             finish();
                         }
@@ -119,8 +135,8 @@ public class CustommerCall extends AppCompatActivity {
             requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
                     "mode=driving&" +
                     "transit_routing_preference=less_driving&" +
-                    "origin=" + Common.mLastLocation .getLatitude() + "," + Common.mLastLocation.getLongitude() + "&" +
-                    "destination=" + lat+","+lng + "&" +
+                    "origin=" + Common.mLastLocation.getLatitude() + "," + Common.mLastLocation.getLongitude() + "&" +
+                    "destination=" + lat + "," + lng + "&" +
                     "key=" + getResources().getString(R.string.google_direction_api);
             Log.d("DIRECTIONSKEY: ", requestApi);
 
