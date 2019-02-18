@@ -19,6 +19,8 @@ import android.widget.Toast;
 
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
+import com.firebase.geofire.GeoQuery;
+import com.firebase.geofire.GeoQueryEventListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -43,6 +45,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.SquareCap;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.FirebaseDatabase;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -57,6 +60,11 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import theron.uberclonedriver.Common.Common;
 import theron.uberclonedriver.Helper.DirectionJSONParser;
+import theron.uberclonedriver.Model.FCMResponse;
+import theron.uberclonedriver.Model.Notification;
+import theron.uberclonedriver.Model.Sender;
+import theron.uberclonedriver.Model.Token;
+import theron.uberclonedriver.Remote.IFCMService;
 import theron.uberclonedriver.Remote.IGoogleAPI;
 
 public class DriverTracking extends FragmentActivity implements OnMapReadyCallback,
@@ -77,6 +85,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
     private GoogleMap mMap;
 
     double riderLat, riderLng;
+    String customerId;
 
     private Circle riderMarker;
     private Marker driverMarker;
@@ -84,6 +93,9 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
     private Polyline direction;
 
     IGoogleAPI mService;
+    IFCMService mFCMService;
+
+    GeoFire geoFire;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,9 +109,11 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         if (getIntent() != null) {
             riderLat = getIntent().getDoubleExtra("lat", -1.0);
             riderLng = getIntent().getDoubleExtra("lng", -1.0);
+            customerId = getIntent().getStringExtra("customerId");
         }
 
         mService = Common.getGoogleAPI();
+mFCMService = Common.getFCMService();
 
         setUpLocation();
     }
@@ -110,10 +124,65 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
         riderMarker = mMap.addCircle(new CircleOptions()
                 .center(new LatLng(riderLat, riderLng))
-                .radius(10)
+                .radius(50)
                 .strokeColor(Color.BLUE)
                 .fillColor(0x220000FF)
                 .strokeWidth(5.0f));
+
+        //Create Geo fencing with radius is 50m
+        geoFire = new GeoFire(FirebaseDatabase.getInstance().getReference(Common.driver_tbl));
+        GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(riderLat, riderLng), 0.05f);
+        geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
+            @Override
+            public void onKeyEntered(String key, GeoLocation location) {
+                //Because here we will need customer Id (rider id) to send notification
+                //So, we will pass it from previous activity (CustomerCall)
+                sendArrivedNotification(customerId);
+            }
+
+            @Override
+            public void onKeyExited(String key) {
+
+            }
+
+            @Override
+            public void onKeyMoved(String key, GeoLocation location) {
+
+            }
+
+            @Override
+            public void onGeoQueryReady() {
+
+            }
+
+            @Override
+            public void onGeoQueryError(DatabaseError error) {
+
+            }
+        });
+    }
+
+    private void sendArrivedNotification(String customerId) {
+        Token token = new Token(customerId);
+        //We will send notification with title is Arrived and body is the string
+        Notification notification = new Notification("Arrived", String.format
+                ("The driver %s has arrived at your location", Common.currentUser.getName()));
+        Sender sender = new Sender(token.getToken(), notification);
+        
+        mFCMService.sendMessage(sender).enqueue(new Callback<FCMResponse>() {
+            @Override
+            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                if(response.body().success != 1){
+                    Toast.makeText(DriverTracking.this, "Failed!", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FCMResponse> call, Throwable t) {
+
+            }
+        });
+
     }
 
     private void startLocationUpdates() {

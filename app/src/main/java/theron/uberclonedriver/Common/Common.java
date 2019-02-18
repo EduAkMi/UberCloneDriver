@@ -2,6 +2,7 @@ package theron.uberclonedriver.Common;
 
 import android.location.Location;
 
+import theron.uberclonedriver.Model.User;
 import theron.uberclonedriver.Remote.FCMClient;
 import theron.uberclonedriver.Remote.IFCMService;
 import theron.uberclonedriver.Remote.IGoogleAPI;
@@ -14,6 +15,8 @@ public class Common {
     public static final String user_rider_tbl = "RidersInformation";
     public static final String pickup_request_tbl = "PickupRequest";
     public static final String token_tbl = "Tokens";
+
+    public static User currentUser;
 
     public static Location mLastLocation = null;
 
